@@ -1,19 +1,17 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import ReactBezier from "react-bezier";
 import "./App.css";
-import Draggable from "react-draggable";
 import Node from "./components/Node";
-import NodeType, {
-  mapPositionType,
-  mapPositionTypeType,
-} from "./utils/types/nodeTypes";
+import NodeType, { mapPositionType } from "./utils/types/nodeTypes";
 import MapType from "./utils/types/mapTypes";
+import { v4 as uuidv4 } from "uuid";
 function App() {
-  const [count, setCount] = useState(0);
-  const [nodes, setNodes] = useState<NodeType[] | NodeType>({
+  const [nodes, setNodes] = useState<NodeType>({
     id: "card1",
     name: "Card 1",
     type: "card",
+    x: 70,
+    y: 240,
     children: [
       {
         id: "card2",
@@ -32,34 +30,45 @@ function App() {
                 name: "Card 7",
                 parentMapFromPosition: mapPositionType.right,
                 parentMapToPosition: mapPositionType.left,
+                x: 80,
+                y: 130,
               },
             ],
+
+            x: 90,
+            y: 140,
           },
           {
             id: "card6",
             name: "Card 6",
             parentMapFromPosition: mapPositionType.right,
             parentMapToPosition: mapPositionType.left,
+            x: 100,
+            y: 150,
           },
         ],
+        x: 110,
+        y: 150,
       },
       {
         id: "card3",
         name: "Card 3",
         parentMapFromPosition: mapPositionType.right,
         parentMapToPosition: mapPositionType.left,
+        x: 120,
+        y: 150,
       },
       {
         id: "card4",
         name: "Card 4",
         parentMapFromPosition: mapPositionType.right,
         parentMapToPosition: mapPositionType.left,
+        x: 130,
+        y: 160,
       },
     ],
   });
-  // const [parsedNodes, setParsedNodes] = useState<NodeType[]>([]);
-  // const [mapSettings, setMapSettings] = useState<MapType[]>([]);
-  const flattenNodes = (node: NodeType | NodeType[], arr) => {
+  const flattenNodes = useCallback((node: NodeType | NodeType[], arr) => {
     if (!Array.isArray(node)) {
       arr.push(node);
     }
@@ -67,61 +76,129 @@ function App() {
       flattenNodes(child, arr);
     });
     return arr;
+  }, []);
+  const buildMapSettings = useCallback(
+    (node: NodeType | NodeType[], arr: MapType[], parentId: string) => {
+      if (!Array.isArray(node)) {
+        arr.push({
+          from: parentId,
+          to: node.id,
+          positions: {
+            start: {
+              side: node.parentMapFromPosition,
+            },
+            end: {
+              side: node.parentMapToPosition,
+            },
+          },
+          style: "red",
+        });
+      }
+      if (!node) return arr;
+      node?.children?.map((child) => {
+        buildMapSettings(child, arr, node?.id);
+      });
+      return arr;
+    },
+    []
+  );
+  const parsedNodes = useMemo(() => {
+    const arr: NodeType[] = [];
+    flattenNodes(nodes, arr);
+    return arr;
+  }, [flattenNodes, nodes]);
+  const mapSettings = useMemo(() => {
+    const ar: MapType[] = [];
+    buildMapSettings(nodes, ar, nodes.id);
+    return ar.slice(1);
+  }, [buildMapSettings, nodes]);
+
+  const changeCordinates = (
+    nodes: NodeType,
+    id: string,
+    x: number,
+    y: number
+  ) => {
+    if (!Array.isArray(nodes)) {
+      if (nodes.id === id) {
+        nodes.x = x;
+        nodes.y = y;
+      }
+    }
+    nodes?.children?.map((child) => {
+      changeCordinates(child, id, x, y);
+    });
   };
-  const buildMapSettings = (node, arr, parentId) => {
-    if (!Array.isArray(node)) {
-      arr.push({
-        from: parentId,
-        to: node.id,
+  const addNewNode = (nodes: NodeType, id: string, position: string) => {
+    if (nodes.id === id) {
+      nodes.children = nodes.children || [];
+      nodes.children.push({
+        id: `${uuidv4()}`,
+        name: `Enter new node`,
+        parentMapFromPosition: mapPositionType[position],
+        parentMapToPosition: mapPositionType.left,
+        x: nodes?.x + 10,
+        y: 0,
+      });
+      mapSettings.push({
+        from: id, // Parent node ID
+        to: `${id}1`, // New node ID
         positions: {
           start: {
-            side: node.parentMapFromPosition,
+            side: mapPositionType[position],
           },
           end: {
-            side: node.parentMapToPosition,
+            side: mapPositionType.left,
           },
         },
         style: "red",
       });
+      return;
     }
-    if (!node) return arr;
-    node?.children?.map((child) => {
-      buildMapSettings(child, arr, node?.id);
+    nodes?.children?.map((child) => {
+      addNewNode(child, id, position);
     });
-    return arr;
   };
-  const parsedNodes = useMemo(() => {
-    const arr = [];
-    flattenNodes(nodes, arr);
-    return arr;
-  }, [nodes]);
-  const mapSettings = useMemo(() => {
-    const ar = [];
-    buildMapSettings(nodes, ar, nodes.id);
-    return ar.slice(1);
-  }, [nodes]);
-
-  const addNewNode = () => {
-    setNodes([
-      ...nodes,
-      {
-        id: "card2",
-        name: "Card 2",
-        type: "card",
-      },
-    ]);
+  const handleAddNode = (id: string, position: string) => {
+    addNewNode(nodes, id, position);
+    // console.log(nodes);
+    setNodes({ ...nodes });
+  };
+  const handleDrag = (id: string, ui: any) => {
+    const { x, y } = ui;
+    changeCordinates(nodes, id, x, y);
+    setNodes({ ...nodes });
+  };
+  const nameChange = (nodes: NodeType, id: string, value: string) => {
+    if (nodes.id === id) {
+      nodes.name = value;
+      return;
+    }
+    nodes?.children?.map((child) => {
+      nameChange(child, id, value);
+    });
+  };
+  const handleNameChange = (e) => {
+    nameChange(nodes, e.target.id, e.target.value);
+    setNodes({ ...nodes });
   };
 
-  console.log(parsedNodes);
-  console.log(mapSettings);
   return (
     <>
       <ReactBezier settings={mapSettings}>
         {parsedNodes?.map((node) => (
-          <Node key={node.id} id={node.id} name={node.name} />
+          <Node
+            key={node.id}
+            id={node.id}
+            name={node.name}
+            x={node.x}
+            y={node.y}
+            handleDrag={handleDrag}
+            handleAddNode={handleAddNode}
+            handleNameChange={handleNameChange}
+          />
         ))}
       </ReactBezier>
-      <button onClick={() => addNewNode()}>Add New Node</button>
     </>
   );
 }

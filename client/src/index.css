@@ -58,3 +58,17 @@ button:focus-visible {
 .red {
   stroke: red;
 }
+
+.card-container {
+  min-width: 100px;
+}
+.arrows:hover {
+  cursor: pointer;
+  display: block;
+}
+.arrows {
+  display: none;
+}
+.card-container:hover .arrows {
+  display: block;
+}

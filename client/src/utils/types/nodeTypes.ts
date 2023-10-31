@@ -12,6 +12,8 @@ interface NodeType {
   parent?: NodeType;
   parentMapToPosition?: string;
   parentMapFromPosition?: string;
+  x?: number;
+  y?: number;
 }
 
 export default NodeType;
